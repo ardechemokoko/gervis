@@ -198,7 +198,11 @@ services:
       - backend
       - traefik
     entrypoint: ["sh", "-c"]
-    command: ["npx next start -p 4000 -H 0.0.0.0 || node_modules/.bin/next start -p 4000 -H 0.0.0.0 || npm start"]
+    command:
+      - |
+        echo "NEXT_PUBLIC_API_URL=https://api.cab-lyly.com/api" > .env.local
+        export NEXT_PUBLIC_API_URL=https://api.cab-lyly.com/api
+        npx next start -p 4000 -H 0.0.0.0 || node_modules/.bin/next start -p 4000 -H 0.0.0.0 || npm start
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend-admin-rdv.rule=Host(`admin-rdv.cab-lyly.com`)"
@@ -227,7 +231,11 @@ services:
       - backend
       - traefik
     entrypoint: ["sh", "-c"]
-    command: ["npx next start -p 4001 -H 0.0.0.0 || node_modules/.bin/next start -p 4001 -H 0.0.0.0 || npm start"]
+    command:
+      - |
+        echo "NEXT_PUBLIC_API_URL=https://api.cab-lyly.com/api" > .env.local
+        export NEXT_PUBLIC_API_URL=https://api.cab-lyly.com/api
+        npx next start -p 4001 -H 0.0.0.0 || node_modules/.bin/next start -p 4001 -H 0.0.0.0 || npm start
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend-public.rule=Host(`eclosia.cab-lyly.com`)"
