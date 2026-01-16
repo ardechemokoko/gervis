@@ -1,0 +1,278 @@
+services:
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: eclosia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eclosia_db
+      POSTGRES_USER: eclosia_user
+      POSTGRES_PASSWORD: eclosia_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - eclosia-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eclosia_user -d eclosia_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: eclosia-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@eclosia.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'True'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'True'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - eclosia-network
+    depends_on:
+      - postgres
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.cab-lyly.com`)"
+      - "traefik.http.routers.pgadmin.entrypoints=websecure"
+      - "traefik.http.routers.pgadmin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+
+  # Traefik - Reverse Proxy
+  traefik:
+    image: traefik:v3.0
+    container_name: eclosia-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=eclosia-network"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@cab-lyly.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - eclosia-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.cab-lyly.com`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080"
+
+  # Portainer - Gestion de conteneurs Docker
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: eclosia-portainer
+    restart: unless-stopped
+    command: -H unix:///var/run/docker.sock
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    networks:
+      - eclosia-network
+    depends_on:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.cab-lyly.com`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.http.routers.portainer.middlewares=portainer-headers"
+      - "traefik.http.middlewares.portainer-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.portainer-headers.headers.sslredirect=false"
+
+  # Backend Laravel
+  backend:
+    image: ghcr.io/ardechemokoko/app-backend-coaching:latest
+    container_name: eclosia-backend
+    restart: unless-stopped
+    volumes:
+      - backend_storage:/var/www/html/storage
+    environment:
+      APP_NAME: Eclosia
+      APP_ENV: local
+      APP_KEY: base64:/YzRYG28d6KqN93yAuJOWposBKmG5YMJw1S6PXO6geo=
+      APP_DEBUG: true
+      APP_URL: https://api.cab-lyly.com
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: eclosia_db
+      DB_USERNAME: eclosia_user
+      DB_PASSWORD: eclosia_password
+
+      FRONTEND_URL: https://admin-rdv.cab-lyly.com
+      FRONTEND_CANDIDAT_URL: https://candidat.cab-lyly.com
+      FRONTEND_PUBLIC_URL: https://public.cab-lyly.com
+
+      MAIL_MAILER: log
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: 
+      MAIL_PASSWORD: 
+      MAIL_ENCRYPTION: tls
+      MAIL_FROM_ADDRESS: noreply@eclosia.com
+      MAIL_FROM_NAME: Eclosia
+    networks:
+      - eclosia-network
+    depends_on:
+      - postgres
+      - traefik
+    command: php artisan serve --host=0.0.0.0 --port=8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.cab-lyly.com`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+
+  # Frontend Admin RDV (Next.js)
+  frontend-admin-rdv:
+    image: ghcr.io/ardechemokoko/app-frontend-admin-rdv:latest
+    container_name: eclosia-frontend-admin-rdv
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.cab-lyly.com/api
+      PORT: 4000
+      HOSTNAME: 0.0.0.0
+      HOST: 0.0.0.0
+    networks:
+      - eclosia-network
+    depends_on:
+      - backend
+      - traefik
+    entrypoint: ["sh", "-c"]
+    command: ["npx next start -p 4000 -H 0.0.0.0 || node_modules/.bin/next start -p 4000 -H 0.0.0.0 || npm start"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-admin-rdv.rule=Host(`admin-rdv.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-admin-rdv.entrypoints=websecure"
+      - "traefik.http.routers.frontend-admin-rdv.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-admin-rdv.loadbalancer.server.port=4000"
+
+  # Frontend Public (Next.js)
+  frontend-public:
+    image: ghcr.io/ardechemokoko/frontend-pubic-rdv:dev
+    container_name: eclosia-frontend-public
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: https://api.cab-lyly.com/api
+      PORT: 4001
+      HOSTNAME: 0.0.0.0
+      HOST: 0.0.0.0
+    networks:
+      - eclosia-network
+    depends_on:
+      - backend
+      - traefik
+    entrypoint: ["sh", "-c"]
+    command: ["npx next start -p 4001 -H 0.0.0.0 || node_modules/.bin/next start -p 4001 -H 0.0.0.0 || npm start"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-public.rule=Host(`public.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-public.entrypoints=websecure"
+      - "traefik.http.routers.frontend-public.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-public.loadbalancer.server.port=4001"
+
+  # Frontend Candidat (React/Vite)
+  frontend-candidat:
+    image: ghcr.io/ardechemokoko/frontend-candidat-coachig:dev
+    container_name: eclosia-frontend-candidat
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: https://api.cab-lyly.com/api
+      VITE_API_BACKEND_URL: http://backend:8080
+      HOST: 0.0.0.0
+      PORT: 3002
+    networks:
+      - eclosia-network
+    depends_on:
+      - backend
+      - traefik
+    working_dir: /app
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        (grep -q "react-is" package.json || yarn add react-is --ignore-scripts --silent) || true
+        echo 'import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ plugins: [react()], optimizeDeps: { force: true }, server: { port: 3002, host: "0.0.0.0", proxy: { "/api": { target: process.env.VITE_API_BACKEND_URL || "http://localhost:8000", changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, "/api"), secure: false } } } });' > vite.config.override.ts
+        npx vite --config vite.config.override.ts
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-candidat.rule=Host(`candidat.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-candidat.entrypoints=websecure"
+      - "traefik.http.routers.frontend-candidat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-candidat.loadbalancer.server.port=3002"
+
+  # Frontend Admin Coaching (React/Vite)
+  frontend-admin-coaching:
+    image: ghcr.io/ardechemokoko/frontend-admin-coaching:dev
+    container_name: eclosia-frontend-admin-coaching
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: https://api.cab-lyly.com/api
+      VITE_API_BACKEND_URL: http://backend:8080
+      HOST: 0.0.0.0
+      PORT: 3003
+    networks:
+      - eclosia-network
+    depends_on:
+      - backend
+      - traefik
+    working_dir: /app
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        (grep -q "react-is" package.json && grep -q "axios" package.json || yarn add react-is axios --ignore-scripts --silent) || true
+        echo 'import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ plugins: [react()], optimizeDeps: { force: true }, server: { port: 3003, host: "0.0.0.0", proxy: { "/api": { target: process.env.VITE_API_BACKEND_URL || "http://localhost:8000", changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, "/api"), secure: false } } } });' > vite.config.override.ts
+        npx vite --config vite.config.override.ts
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-admin-coaching.rule=Host(`admin-coaching.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-admin-coaching.entrypoints=websecure"
+      - "traefik.http.routers.frontend-admin-coaching.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend-admin-coaching.loadbalancer.server.port=3003"
+
+networks:
+  eclosia-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  backend_storage:
+    driver: local
+  traefik_letsencrypt:
+    driver: local
+  portainer_data:
+    driver: local
