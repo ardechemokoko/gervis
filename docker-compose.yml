@@ -123,6 +123,7 @@ services:
     image: ghcr.io/ardechemokoko/app-backend-coaching:latest
     container_name: eclosia-backend
     restart: unless-stopped
+    working_dir: /var/www/html
     volumes:
       - backend_storage:/var/www/html/storage
     environment:
@@ -141,7 +142,7 @@ services:
 
       FRONTEND_URL: https://admin-rdv.cab-lyly.com
       FRONTEND_CANDIDAT_URL: https://candidat.cab-lyly.com
-      FRONTEND_PUBLIC_URL: https://public.cab-lyly.com
+      FRONTEND_PUBLIC_URL: https://eclosia.cab-lyly.com
 
       MAIL_MAILER: log
       MAIL_HOST: mailpit
@@ -156,7 +157,16 @@ services:
     depends_on:
       - postgres
       - traefik
-    command: php artisan serve --host=0.0.0.0 --port=8080
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        if [ -f /var/www/html/.env ]; then
+          mv /var/www/html/.env /var/www/html/.env.ignored
+          echo "✓ Fichier .env ignoré, utilisation des variables d'environnement Docker"
+        fi
+        php artisan config:clear
+        php artisan cache:clear
+        php artisan serve --host=0.0.0.0 --port=8080
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.cab-lyly.com`)"
@@ -220,11 +230,11 @@ services:
     command: ["npx next start -p 4001 -H 0.0.0.0 || node_modules/.bin/next start -p 4001 -H 0.0.0.0 || npm start"]
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend-public.rule=Host(`public.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-public.rule=Host(`eclosia.cab-lyly.com`)"
       - "traefik.http.routers.frontend-public.entrypoints=websecure"
       - "traefik.http.routers.frontend-public.tls.certresolver=letsencrypt"
       - "traefik.http.routers.frontend-public.tls=true"
-      - "traefik.http.routers.frontend-public-http.rule=Host(`public.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-public-http.rule=Host(`eclosia.cab-lyly.com`)"
       - "traefik.http.routers.frontend-public-http.entrypoints=web"
       - "traefik.http.routers.frontend-public-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
