@@ -43,6 +43,9 @@ services:
       - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.cab-lyly.com`)"
       - "traefik.http.routers.pgadmin.entrypoints=websecure"
       - "traefik.http.routers.pgadmin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pgadmin-http.rule=Host(`pgadmin.cab-lyly.com`)"
+      - "traefik.http.routers.pgadmin-http.entrypoints=web"
+      - "traefik.http.routers.pgadmin-http.middlewares=redirect-to-https"
       - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
 
   # Traefik - Reverse Proxy
@@ -57,8 +60,6 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=eclosia-network"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.email=admin@cab-lyly.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
@@ -78,6 +79,9 @@ services:
       - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.cab-lyly.com`)"
       - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
       - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard-http.rule=Host(`traefik.cab-lyly.com`)"
+      - "traefik.http.routers.traefik-dashboard-http.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard-http.middlewares=redirect-to-https"
       - "traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080"
 
   # Portainer - Gestion de conteneurs Docker
@@ -100,6 +104,9 @@ services:
       - "traefik.http.routers.portainer.rule=Host(`portainer.cab-lyly.com`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.portainer-http.rule=Host(`portainer.cab-lyly.com`)"
+      - "traefik.http.routers.portainer-http.entrypoints=web"
+      - "traefik.http.routers.portainer-http.middlewares=redirect-to-https"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.http.routers.portainer.middlewares=portainer-headers"
       - "traefik.http.middlewares.portainer-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
@@ -149,6 +156,10 @@ services:
       - "traefik.http.routers.backend.rule=Host(`api.cab-lyly.com`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-http.rule=Host(`api.cab-lyly.com`)"
+      - "traefik.http.routers.backend-http.entrypoints=web"
+      - "traefik.http.routers.backend-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.services.backend.loadbalancer.server.port=8080"
 
   # Frontend Admin RDV (Next.js)
@@ -174,6 +185,9 @@ services:
       - "traefik.http.routers.frontend-admin-rdv.rule=Host(`admin-rdv.cab-lyly.com`)"
       - "traefik.http.routers.frontend-admin-rdv.entrypoints=websecure"
       - "traefik.http.routers.frontend-admin-rdv.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-admin-rdv-http.rule=Host(`admin-rdv.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-admin-rdv-http.entrypoints=web"
+      - "traefik.http.routers.frontend-admin-rdv-http.middlewares=redirect-to-https"
       - "traefik.http.services.frontend-admin-rdv.loadbalancer.server.port=4000"
 
   # Frontend Public (Next.js)
@@ -199,6 +213,9 @@ services:
       - "traefik.http.routers.frontend-public.rule=Host(`public.cab-lyly.com`)"
       - "traefik.http.routers.frontend-public.entrypoints=websecure"
       - "traefik.http.routers.frontend-public.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-public-http.rule=Host(`public.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-public-http.entrypoints=web"
+      - "traefik.http.routers.frontend-public-http.middlewares=redirect-to-https"
       - "traefik.http.services.frontend-public.loadbalancer.server.port=4001"
 
   # Frontend Candidat (React/Vite)
@@ -229,6 +246,9 @@ services:
       - "traefik.http.routers.frontend-candidat.rule=Host(`candidat.cab-lyly.com`)"
       - "traefik.http.routers.frontend-candidat.entrypoints=websecure"
       - "traefik.http.routers.frontend-candidat.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-candidat-http.rule=Host(`candidat.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-candidat-http.entrypoints=web"
+      - "traefik.http.routers.frontend-candidat-http.middlewares=redirect-to-https"
       - "traefik.http.services.frontend-candidat.loadbalancer.server.port=3002"
 
   # Frontend Admin Coaching (React/Vite)
@@ -259,6 +279,9 @@ services:
       - "traefik.http.routers.frontend-admin-coaching.rule=Host(`admin-coaching.cab-lyly.com`)"
       - "traefik.http.routers.frontend-admin-coaching.entrypoints=websecure"
       - "traefik.http.routers.frontend-admin-coaching.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend-admin-coaching-http.rule=Host(`admin-coaching.cab-lyly.com`)"
+      - "traefik.http.routers.frontend-admin-coaching-http.entrypoints=web"
+      - "traefik.http.routers.frontend-admin-coaching-http.middlewares=redirect-to-https"
       - "traefik.http.services.frontend-admin-coaching.loadbalancer.server.port=3003"
 
 networks:
