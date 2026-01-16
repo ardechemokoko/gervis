@@ -68,7 +68,6 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.email=admin@cab-lyly.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.preferredchain=ISRG Root X1"
       - "--log.level=INFO"
     ports:
       - "80:80"
