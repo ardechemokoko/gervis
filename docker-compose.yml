@@ -262,6 +262,34 @@ services:
     command:
       - |
         (grep -q "react-is" package.json || yarn add react-is --ignore-scripts --silent) || true
+        if [ -f src/config/api.ts ]; then
+          cp src/config/api.ts src/config/api.ts.bak
+          cat > src/config/api.ts << 'EOF'
+// Configuration API - Modifiée automatiquement au démarrage du conteneur
+const viteApiUrl = import.meta.env.VITE_API_URL;
+// Toujours utiliser VITE_API_URL si défini, sinon utiliser le proxy en dev ou localhost en prod
+export const API_URL = viteApiUrl 
+  ? viteApiUrl
+  : (import.meta.env.DEV 
+    ? '/api'
+    : 'http://localhost:8000/api');
+
+if (import.meta.env.DEV) {
+  console.log('🔗 API URL configurée:', API_URL);
+  console.log('🔗 VITE_API_URL depuis env:', viteApiUrl);
+  console.log('🔗 Mode DEV:', import.meta.env.DEV);
+}
+
+export const apiConfig = {
+  baseURL: API_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+};
+EOF
+        fi
         echo 'import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ plugins: [react()], optimizeDeps: { force: true }, server: { port: 3002, host: "0.0.0.0", allowedHosts: ["candidat.cab-lyly.com"], proxy: { "/api": { target: process.env.VITE_API_BACKEND_URL || "http://localhost:8000", changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, "/api"), secure: false } } } });' > vite.config.override.ts
         npx vite --config vite.config.override.ts
     labels:
@@ -296,6 +324,34 @@ services:
     command:
       - |
         (grep -q "react-is" package.json && grep -q "axios" package.json || yarn add react-is axios --ignore-scripts --silent) || true
+        if [ -f src/config/api.ts ]; then
+          cp src/config/api.ts src/config/api.ts.bak
+          cat > src/config/api.ts << 'EOF'
+// Configuration API - Modifiée automatiquement au démarrage du conteneur
+const viteApiUrl = import.meta.env.VITE_API_URL;
+// Toujours utiliser VITE_API_URL si défini, sinon utiliser le proxy en dev ou localhost en prod
+export const API_URL = viteApiUrl 
+  ? viteApiUrl
+  : (import.meta.env.DEV 
+    ? '/api'
+    : 'http://localhost:8000/api');
+
+if (import.meta.env.DEV) {
+  console.log('🔗 API URL configurée:', API_URL);
+  console.log('🔗 VITE_API_URL depuis env:', viteApiUrl);
+  console.log('🔗 Mode DEV:', import.meta.env.DEV);
+}
+
+export const apiConfig = {
+  baseURL: API_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+};
+EOF
+        fi
         echo 'import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ plugins: [react()], optimizeDeps: { force: true }, server: { port: 3003, host: "0.0.0.0", allowedHosts: ["admin-coaching.cab-lyly.com"], proxy: { "/api": { target: process.env.VITE_API_BACKEND_URL || "http://localhost:8000", changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, "/api"), secure: false } } } });' > vite.config.override.ts
         npx vite --config vite.config.override.ts
     labels:
